@@ -1,13 +1,15 @@
-Package: LcQCProject
-Title: What the Package Does (One Line, Title Case)
+Package: PeakQualityR
+Title: Non-parametric comparison of peak shapes using moments and Mahalonobis distance
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Joe", "Knotts", , "j.knotts703@gmail.com", role = c("aut", "cre"))
+Description: Treats LC trace data as a probability distribution by multiplying retention time * intensity and summing the results. This data is then used to calculate all 4 statistical moments (mean, variance, skewness, kurtosis).
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 URL: https://github.com/jknottsLCMS/LcQCProject
 BugReports: https://github.com/jknottsLCMS/LcQCProject/issues
+Suggests: 
+    knitr,
+    rmarkdown
