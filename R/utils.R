@@ -18,3 +18,66 @@
 
   return(df)
 }
+
+#' Skyline data import utility
+#'
+#' @param skydata A character string consisting of the filepath to a Skyline file
+#' @param output A character string consisting of a name for the exported Skyline chromatograms
+#' @param .skyRunLoc A character string to specify filepath to the SkylineRunner shim
+#' if not located in the default C:/User/Downloads location
+#' @return A data frame containing data nested by peptide, isotope label (H/L), and transition
+#' @export
+skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
+
+  # save wd for easy modifications
+  curDir = getwd()
+
+  # if an output isn't provided, supply a default
+  if (is.null(output) == TRUE){
+    output = paste0(curDir,'skyline_chromatograms.tsv')
+  }
+  else{
+    output =  paste0(curDir,output)
+  }
+
+  # point to location of skyline cmd tool and skyline data
+
+  if (is.null(.skyRunLoc)){
+    skyline_exe = file.path(Sys.getenv("USERPROFILE"),"Downloads","SklylineRunner.exe")
+  }
+
+  else {
+    skyline_exe = .skyRunLoc
+  }
+  skyline_doc = skydata
+
+  # run the command to export data automatically
+
+  df = system2(skyline_exe, args = c(
+    paste0('--in="',skyline_doc,'"'),
+    paste0('--chromatogram-file="',output,'"')
+  ))
+
+  # import file into R
+
+  df = read_tsv(output,name_repair = "universal",col_types = c("c","c","f","f","f","f","f","d","d","d"))
+
+  # fix time and intensity columns so that they are interpreted as a list of numbers
+
+  df = df |>
+    mutate(Times = str_split(Times,",") |> map(as.numeric)) |>
+    mutate(Intensities = str_split(Intensities,",") |> map(as.numeric))
+
+  # create a nested list based on peptide, isotope label, and transition
+
+  df = df |>
+    unnest(cols = c(Times,Intensities)) |>
+    nest(.by = c(PeptideModifiedSequence,IsotopeLabelType,FragmentIon,ProductMz))
+
+  return(df)
+}
+
+#' Environemnt to store path to SkylineRunner for automated imports
+#'
+#' @export
+.skyRunLocCache <- new.env(parent = emptyenv())
