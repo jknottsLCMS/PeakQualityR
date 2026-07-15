@@ -27,14 +27,14 @@
 #' if not located in the default C:/User/Downloads location
 #' @return A data frame containing data nested by peptide, isotope label (H/L), and transition
 #' @export
-skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
+.skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
 
   # save wd for easy modifications
   curDir = getwd()
 
   # if an output isn't provided, supply a default
   if (is.null(output) == TRUE){
-    output = paste0(curDir,'skyline_chromatograms.tsv')
+    output = paste0(curDir,'/skyline_chromatograms.tsv')
   }
   else{
     output =  paste0(curDir,output)
@@ -43,7 +43,8 @@ skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
   # point to location of skyline cmd tool and skyline data
 
   if (is.null(.skyRunLoc)){
-    skyline_exe = file.path(Sys.getenv("USERPROFILE"),"Downloads","SklylineRunner.exe")
+    skyline_exe = file.path(Sys.getenv("USERPROFILE"),"Downloads","SkylineRunner.exe") |>
+      normalizePath(winslash = "/")
   }
 
   else {
@@ -53,7 +54,7 @@ skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
 
   # run the command to export data automatically
 
-  df = system2(skyline_exe, args = c(
+  df <- system2(skyline_exe, args = c(
     paste0('--in="',skyline_doc,'"'),
     paste0('--chromatogram-file="',output,'"')
   ))
