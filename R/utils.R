@@ -27,14 +27,14 @@
 #' if not located in the default C:/User/Downloads location
 #' @return A data frame containing data nested by peptide, isotope label (H/L), and transition
 #' @export
-skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
+.skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
 
   # save wd for easy modifications
   curDir = getwd()
 
   # if an output isn't provided, supply a default
   if (is.null(output) == TRUE){
-    output = paste0(curDir,'skyline_chromatograms.tsv')
+    output = paste0(curDir,'/skyline_chromatograms.tsv')
   }
   else{
     output =  paste0(curDir,output)
@@ -43,7 +43,8 @@ skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
   # point to location of skyline cmd tool and skyline data
 
   if (is.null(.skyRunLoc)){
-    skyline_exe = file.path(Sys.getenv("USERPROFILE"),"Downloads","SklylineRunner.exe")
+    skyline_exe = file.path(Sys.getenv("USERPROFILE"),"Downloads","SkylineRunner.exe") |>
+      normalizePath(winslash = "/")
   }
 
   else {
@@ -53,7 +54,7 @@ skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
 
   # run the command to export data automatically
 
-  df = system2(skyline_exe, args = c(
+  df <- system2(skyline_exe, args = c(
     paste0('--in="',skyline_doc,'"'),
     paste0('--chromatogram-file="',output,'"')
   ))
@@ -73,6 +74,73 @@ skyline_auto_import = function(skydata, output=NULL,.skyRunLoc=NULL){
   df = df |>
     unnest(cols = c(Times,Intensities)) |>
     nest(.by = c(PeptideModifiedSequence,IsotopeLabelType,FragmentIon,ProductMz))
+
+  df = df |>
+    mutate(Threshold=map(data,~.x |>
+                           group_by(FileName) |>
+                           reframe(.thresholdR(RT = Times, intensity = Intensities))
+    ))
+
+  return(df)
+}
+
+#' Create a benchmark group for calculating MD
+#'
+#' @param data A data frame containing properly formatted data
+#' @return A data frame with computed moments, mu, and sigma for benchmark samples
+#' @export
+.setBenchmark = function(data){
+  # default name because easier
+  df = data
+
+  # create a list of all available injection names
+  injNames = levels(as.factor(df["data"][[1]][[1]][[1]]))
+
+  # allow user to select their preferred injections
+  injSelect = dlg_list(
+    injNames,
+    multiple = TRUE,
+    title = "Select benchmark injections"
+  )$res
+
+  # filter data with user selected injection names
+  Bench = df |>
+    mutate(
+      Benchmark = map(
+        Threshold,~.x |>
+          filter(FileName %in% injSelect)
+      )
+    )
+
+  # compute moments for filtered results
+  Bench = Bench |>
+    mutate(
+      BenchmarkMoments = map(
+        Benchmark,~.x |>
+          reframe(
+            moments(RT = RT,intensity = intensity),
+            .by = FileName
+          )
+      )
+    )
+
+  # create new columns for mu and sigma values
+
+  Bench = Bench |>
+    mutate(
+      Mu = map(
+        BenchmarkMoments,~.x |>
+          select(!FileName) |>
+          colMeans()
+      )) |>
+    mutate(
+      Sigma = map(
+        BenchmarkMoments,~.x |>
+          select(!FileName) |>
+          cov()
+      ))
+
+  df = left_join(df,Bench)
 
   return(df)
 }

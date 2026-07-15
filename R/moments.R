@@ -121,3 +121,54 @@ moments = function(RT,intensity){
   return(tblOut)
 }
 
+#' Provides a console report of Mahalanobis distance for each peak from the set benchmark
+#' Shows the individual calculated values for each moment
+#'
+#' @param data A properly formatted data frame
+#' @return Iterative character strings printed to the console
+#' @export
+PeakDistance = function(data){
+  df = data
+
+  # set benchmark
+  df = .setBenchmark(df)
+
+  # calculate moments for all injections
+  df = df |>
+    mutate(
+      Moments = map(
+        Threshold,~.x |>
+          reframe(
+            moments(RT = RT, intensity = intensity),
+            .by = FileName)
+      )
+    )
+
+  # calculate distances
+  distance = .mdCalc(df)
+
+  # join with original df
+  df = df |>
+    mutate("Peak Distances" = distance)
+
+  # create a report to print
+
+  output = df |>
+    select(PeptideModifiedSequence,IsotopeLabelType,FragmentIon,ProductMz,Moments,`Peak Distances`) |>
+    unnest(Moments,`Peak Distances`) |>
+    select(!name) |>
+    nest(.by = c(PeptideModifiedSequence,IsotopeLabelType,FragmentIon,ProductMz))
+
+  output |>
+    pwalk(function(...){
+      printable <- list(...)
+
+      cat("\n Peptide:",printable$PeptideModifiedSequence,
+          "| Isotope Label:", printable$IsotopeLabelType,
+          "| Fragment:", printable$FragmentIon,
+          "| ProductMz:",printable$ProductMz,
+          "\n")
+      print(printable$data, n=Inf)
+    })
+  NULL
+}
